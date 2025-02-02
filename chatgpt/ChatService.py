@@ -136,7 +136,17 @@ class ChatService:
         else:
             self.gizmo_id = None
 
-        if "o1-preview" in self.origin_model:
+        if "o3-mini-high" in self.origin_model:
+            self.req_model = "o3-mini-high"
+        elif "o3-mini-medium" in self.origin_model:
+            self.req_model = "o3-mini-medium"
+        elif "o3-mini-low" in self.origin_model:
+            self.req_model = "o3-mini-low"
+        elif "o3-mini" in self.origin_model:
+            self.req_model = "o3-mini"
+        elif "o3" in self.origin_model:
+            self.req_model = "o3"
+        elif "o1-preview" in self.origin_model:
             self.req_model = "o1-preview"
         elif "o1-pro" in self.origin_model:
             self.req_model = "o1-pro"

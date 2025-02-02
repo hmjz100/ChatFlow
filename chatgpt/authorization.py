@@ -33,7 +33,7 @@ def get_req_token(req_token, seed=None):
                     globals.count %= length
                     return available_token_list[globals.count]
             else:
-                return None
+                return ""
         else:
             return req_token
     else:

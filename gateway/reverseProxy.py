@@ -1,7 +1,6 @@
 import json
 import random
 import time
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import Request, HTTPException
@@ -73,13 +72,30 @@ headers_reject_list = [
     "cf-visitor",
 ]
 
+headers_accept_list = [
+    "openai-sentinel-chat-requirements-token",
+    "openai-sentinel-proof-token",
+    "openai-sentinel-turnstile-token",
+    "accept",
+    "authorization",
+    "accept-encoding",
+    "accept-language",
+    "content-type",
+    "oai-device-id",
+    "oai-echo-logs",
+    "oai-language",
+    "sec-fetch-dest",
+    "sec-fetch-mode",
+    "sec-fetch-site",
+]
+
 
 async def get_real_req_token(token):
     req_token = get_req_token(token)
     if len(req_token) == 45 or req_token.startswith("eyJhbGciOi"):
         return req_token
     else:
-        req_token = get_req_token(None, token)
+        req_token = get_req_token("", token)
         return req_token
 
 
@@ -88,6 +104,7 @@ def save_conversation(token, conversation_id, title=None):
         conversation_detail = {
             "id": conversation_id,
             "title": title,
+            "create_time": generate_current_time(),
             "update_time": generate_current_time()
         }
         globals.conversation_map[conversation_id] = conversation_detail
@@ -115,6 +132,12 @@ async def content_generator(r, token, history=True):
         try:
             if history and (len(token) != 45 and not token.startswith("eyJhbGciOi")) and (not conversation_id or not title):
                 chat_chunk = chunk.decode('utf-8')
+                if not conversation_id or not title and chat_chunk.startswith("event: delta\n\ndata: {"):
+                    chunk_data = chat_chunk[19:]
+                    conversation_id = json.loads(chunk_data).get("v").get("conversation_id")
+                    if conversation_id:
+                        save_conversation(token, conversation_id)
+                        title = globals.conversation_map[conversation_id].get("title")
                 if chat_chunk.startswith("data: {"):
                     if "\n\nevent: delta" in chat_chunk:
                         index = chat_chunk.find("\n\nevent: delta")
@@ -127,14 +150,13 @@ async def content_generator(r, token, history=True):
                     chunk_data = chunk_data.strip()
                     if conversation_id is None:
                         conversation_id = json.loads(chunk_data).get("conversation_id")
-                        save_conversation(token, conversation_id)
-                        title = globals.conversation_map[conversation_id].get("title")
+                        if conversation_id:
+                            save_conversation(token, conversation_id)
+                            title = globals.conversation_map[conversation_id].get("title")
                     if title is None:
-                        if "title" in chunk_data:
-                            pass
                         title = json.loads(chunk_data).get("title")
-                    if title:
-                        save_conversation(token, conversation_id, title)
+                        if title:
+                            save_conversation(token, conversation_id, title)
         except Exception as e:
             # logger.error(e)
             # logger.error(chunk.decode('utf-8'))
@@ -158,10 +180,14 @@ async def chatgpt_reverse_proxy(request: Request, path: str):
         params = dict(request.query_params)
         request_cookies = dict(request.cookies)
 
+        # headers = {
+        #     key: value for key, value in request.headers.items()
+        #     if (key.lower() not in ["host", "origin", "referer", "priority",
+        #                             "oai-device-id"] and key.lower() not in headers_reject_list)
+        # }
         headers = {
             key: value for key, value in request.headers.items()
-            if (key.lower() not in ["host", "origin", "referer", "priority",
-                                    "oai-device-id"] and key.lower() not in headers_reject_list)
+            if (key.lower() in headers_accept_list)
         }
 
         base_url = random.choice(chatgpt_base_url_list) if chatgpt_base_url_list else "https://chatgpt.com"
@@ -171,10 +197,20 @@ async def chatgpt_reverse_proxy(request: Request, path: str):
             base_url = "https://files.oaiusercontent.com"
         if "v1/" in path:
             base_url = "https://ab.chatgpt.com"
+        if "sandbox" in path:
+            base_url = "https://web-sandbox.oaiusercontent.com"
+            path = path.replace("sandbox/", "")
 
-        token = request.cookies.get("token", "")
-        req_token = await get_real_req_token(token)
+        token = headers.get("authorization", "").replace("Bearer ", "").strip()
+        if token:
+            req_token = await get_real_req_token(token)
+            access_token = await verify_token(req_token)
+            headers.update({"authorization": f"Bearer {access_token}"})
+
+        cookie_token = request.cookies.get("token", "")
+        req_token = await get_real_req_token(cookie_token)
         fp = get_fp(req_token).copy()
+
         proxy_url = fp.pop("proxy_url", None)
         impersonate = fp.pop("impersonate", "safari15_3")
         user_agent = fp.get("user-agent")
@@ -196,16 +232,10 @@ async def chatgpt_reverse_proxy(request: Request, path: str):
                     "statsig-client-time": int(time.time() * 1000),
                 })
 
-        token = headers.get("authorization", "").replace("Bearer ", "")
-        if token:
-            req_token = await get_real_req_token(token)
-            access_token = await verify_token(req_token)
-            headers.update({"authorization": f"Bearer {access_token}"})
-
         data = await request.body()
 
         history = True
-        if path.endswith("backend-api/conversation"):
+        if path.endswith("backend-api/conversation") or path.endswith("backend-alt/conversation"):
             try:
                 req_json = json.loads(data)
                 history = not req_json.get("history_and_training_disabled", False)
@@ -249,7 +279,7 @@ async def chatgpt_reverse_proxy(request: Request, path: str):
                                         status_code=r.status_code, background=background)
                 return response
             else:
-                if "/backend-api/conversation" in path or "/register-websocket" in path:
+                if path.endswith("backend-api/conversation") or path.endswith("backend-alt/conversation") or "/register-websocket" in path:
                     response = Response(content=(await r.acontent()), media_type=r.headers.get("content-type"),
                                         status_code=r.status_code, background=background)
                 else:
@@ -268,9 +298,12 @@ async def chatgpt_reverse_proxy(request: Request, path: str):
                                    .replace("https://cdn.oaistatic.com", f"{petrol}://{origin_host}")
                                    .replace("webrtc.chatgpt.com", voice_host if voice_host else "webrtc.chatgpt.com")
                                    .replace("files.oaiusercontent.com", file_host if file_host else "files.oaiusercontent.com")
+                                   .replace("web-sandbox.oaiusercontent.com", f"{origin_host}/sandbox")
                                    .replace("https://chatgpt.com", f"{petrol}://{origin_host}")
                                    .replace("chatgpt.com/ces", f"{origin_host}/ces")
                                    )
+                    if base_url == "https://web-sandbox.oaiusercontent.com":
+                        content = content.replace("/assets", "/sandbox/assets")
                     rheaders = dict(r.headers)
                     content_type = rheaders.get("content-type", "")
                     cache_control = rheaders.get("cache-control", "")
