@@ -336,16 +336,16 @@ async def web_reverse_proxy(request: Request, path: str):
 						.replace("https://s.gravatar.com", f"{petrol}://{origin_host}")
 						.replace("chromewebstore.google.com", "chromewebstore.crxsoso.com")
 						# 伪遥测
-						。replace("https://chatgpt.com/ces", f"{petrol}://{origin_host}/ces")
-						。replace("${Mhe}/statsc/flush", f"{petrol}://{origin_host}/ces/statsc/flush")
-						。replace("https://ab.chatgpt.com", f"{petrol}://{origin_host}")
-						。replace("web-sandbox.oaiusercontent.com", f"{origin_host}/sandbox")
+						.replace("https://chatgpt.com/ces", f"{petrol}://{origin_host}/ces")
+						.replace("${Mhe}/statsc/flush", f"{petrol}://{origin_host}/ces/statsc/flush")
+						.replace("https://ab.chatgpt.com", f"{petrol}://{origin_host}")
+						.replace("web-sandbox.oaiusercontent.com", f"{origin_host}/sandbox")
 						# 禁止云收集数据
-						。replace("browser-intake-datadoghq.com", f"0.0.0.0")
-						。replace("datadoghq.com", f"0.0.0.0")
-						。replace("ddog-gov.com", f"0.0.0.0")
-						。replace("dd0g-gov.com", f"0.0.0.0")
-						。replace("datad0g.com", f"0.0.0.0")
+						.replace("browser-intake-datadoghq.com", f"0.0.0.0")
+						.replace("datadoghq.com", f"0.0.0.0")
+						.replace("ddog-gov.com", f"0.0.0.0")
+						.replace("dd0g-gov.com", f"0.0.0.0")
+						.replace("datad0g.com", f"0.0.0.0")
 						# 翻译
 						#.replace("By ChatGPT", "ChatGPT")
 						#.replace("GPTs created by the ChatGPT team", "由 ChatGPT 官方创建的 GPTs")
@@ -355,13 +355,13 @@ async def web_reverse_proxy(request: Request, path: str):
 						#.replace("I can browse the web to help you gather information or conduct research", "我可以浏览网页帮助你收集信息或进行研究。")
 						#.replace("Ask me anything about stains,  settings, sorting and everything  laundry.", "问我任何关于污渍、设置、排序以及洗衣的一切问题。")
 						#.replace("I help parents help their kids with  math. Need a 9pm refresher on  geometry proofs? I’m here for you.", "我帮助家长辅导孩子的数学。需要晚上9点复习几何证明？我在这里帮你。")
-						。replace("给“{name}”发送消息", "问我任何事…")
-						。replace("有什么可以帮忙的？", "今天能帮您些什么？")
-						。replace("获取 ChatGPT 搜索扩展程序", "了解 “ChatGPT 搜索” 扩展")
-						。replace("GPT 占位符", "占位 GPT")
+						.replace("给“{name}”发送消息", "问我任何事…")
+						.replace("有什么可以帮忙的？", "今天能帮您些什么？")
+						.replace("获取 ChatGPT 搜索扩展程序", "了解 “ChatGPT 搜索” 扩展")
+						.replace("GPT 占位符", "占位 GPT")
 						# 其它
-						。replace('fill:"#0D0D0D"','fill:"currentColor"') # “新项目” 图标适配神色模式
-						。replace("FP()","true") # 解除不显示 Sora 限制
+						.replace('fill:"#0D0D0D"','fill:"currentColor"') # “新项目” 图标适配神色模式
+						.replace("FP()","true") # 解除不显示 Sora 限制
 						# .replace("https://chatgpt.com", f"{petrol}://{origin_host}") # 我才是 ChatGPT！
 						# .replace("https", petrol) # 全都给我变协议
 						)
