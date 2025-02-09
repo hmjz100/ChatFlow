@@ -13,7 +13,7 @@ from chatgpt.authorization import verify_token, get_req_token
 from chatgpt.fp import get_fp
 from utils.Client import Client
 from utils.log import log
-from utils.configs import chatgpt_base_url_list, sentinel_proxy_url_list, force_no_history, file_host, voice_host
+from utils.configs import chatgpt_base_url_list, sentinel_proxy_url_list, force_no_history, file_host, voice_host, log_length
 
 def generate_current_time():
 	current_time = datetime.now(timezone.utc)
@@ -214,11 +214,13 @@ async def web_reverse_proxy(request: Request, path: str):
 
 		token = headers.get("authorization", "") or headers.get("x-authorization", "")
 		token = token.replace("Bearer ", "").strip()
+
+
 		if token:
 			req_token = await get_real_req_token(token)
 			access_token = await verify_token(req_token)
 			headers.update({"authorization": f"Bearer {access_token}"})
-			# headers.update({"x-authorization": f"Bearer {access_token}"})
+			headers.update({"x-authorization": f"Bearer {access_token}"})
 
 		token = request.cookies.get("oai-flow-token", "")
 		req_token = await get_real_req_token(token)
@@ -236,6 +238,13 @@ async def web_reverse_proxy(request: Request, path: str):
 			"origin": base_url,
 			"referer": f"{base_url}/"
 		})
+
+		if "file-" in path and "backend-api" not in path:
+			headers.update({
+				"origin": "https://chatgpt.com/",
+				"referer": "https://chatgpt.com/"
+			})
+
 		if "v1/initialize" in path:
 			headers.update({"user-agent": request.headers.get("user-agent")})
 			if "statsig-api-key" not in headers:
@@ -279,10 +288,12 @@ async def web_reverse_proxy(request: Request, path: str):
 								.replace("https", petrol)}, 
 								background=background)
 			elif 'stream' in r.headers.get("content-type", ""):
-				# log.info(f"Request token: {req_token}")
-				# log.info(f"Request proxy: {proxy_url}")
-				# log.info(f"Request UA: {user_agent}")
-				# log.info(f"Request impersonate: {impersonate}")
+				log.info("-" * log_length)
+				log.info(f"Request token: {req_token}")
+				log.info(f"Request proxy: {proxy_url}")
+				log.info(f"Request UA: {user_agent}")
+				log.info(f"Request impersonate: {impersonate}")
+				log.info("-" * log_length)
 				conv_key = r.cookies.get("conv_key", "")
 				response = StreamingResponse(content_generator(r, token, history), media_type=r.headers.get("content-type", ""), background=background)
 				response.set_cookie("conv_key", value=conv_key)
@@ -325,16 +336,16 @@ async def web_reverse_proxy(request: Request, path: str):
 						.replace("https://s.gravatar.com", f"{petrol}://{origin_host}")
 						.replace("chromewebstore.google.com", "chromewebstore.crxsoso.com")
 						# 伪遥测
-						.replace("https://chatgpt.com/ces", f"{petrol}://{origin_host}/ces")
-						.replace("${Mhe}/statsc/flush", f"{petrol}://{origin_host}/ces/statsc/flush")
-						.replace("https://ab.chatgpt.com", f"{petrol}://{origin_host}")
-						.replace("web-sandbox.oaiusercontent.com", f"{origin_host}/sandbox")
+						。replace("https://chatgpt.com/ces", f"{petrol}://{origin_host}/ces")
+						。replace("${Mhe}/statsc/flush", f"{petrol}://{origin_host}/ces/statsc/flush")
+						。replace("https://ab.chatgpt.com", f"{petrol}://{origin_host}")
+						。replace("web-sandbox.oaiusercontent.com", f"{origin_host}/sandbox")
 						# 禁止云收集数据
-						.replace("browser-intake-datadoghq.com", f"0.0.0.0")
-						.replace("datadoghq.com", f"0.0.0.0")
-						.replace("ddog-gov.com", f"0.0.0.0")
-						.replace("dd0g-gov.com", f"0.0.0.0")
-						.replace("datad0g.com", f"0.0.0.0")
+						。replace("browser-intake-datadoghq.com", f"0.0.0.0")
+						。replace("datadoghq.com", f"0.0.0.0")
+						。replace("ddog-gov.com", f"0.0.0.0")
+						。replace("dd0g-gov.com", f"0.0.0.0")
+						。replace("datad0g.com", f"0.0.0.0")
 						# 翻译
 						#.replace("By ChatGPT", "ChatGPT")
 						#.replace("GPTs created by the ChatGPT team", "由 ChatGPT 官方创建的 GPTs")
@@ -344,13 +355,13 @@ async def web_reverse_proxy(request: Request, path: str):
 						#.replace("I can browse the web to help you gather information or conduct research", "我可以浏览网页帮助你收集信息或进行研究。")
 						#.replace("Ask me anything about stains,  settings, sorting and everything  laundry.", "问我任何关于污渍、设置、排序以及洗衣的一切问题。")
 						#.replace("I help parents help their kids with  math. Need a 9pm refresher on  geometry proofs? I’m here for you.", "我帮助家长辅导孩子的数学。需要晚上9点复习几何证明？我在这里帮你。")
-						.replace("给“{name}”发送消息", "问我任何事…")
-						.replace("有什么可以帮忙的？", "今天能帮您些什么？")
-						.replace("获取 ChatGPT 搜索扩展程序", "了解 “ChatGPT 搜索” 扩展")
-						.replace("GPT 占位符", "占位 GPT")
+						。replace("给“{name}”发送消息", "问我任何事…")
+						。replace("有什么可以帮忙的？", "今天能帮您些什么？")
+						。replace("获取 ChatGPT 搜索扩展程序", "了解 “ChatGPT 搜索” 扩展")
+						。replace("GPT 占位符", "占位 GPT")
 						# 其它
-						.replace('fill:"#0D0D0D"','fill:"currentColor"') # “新项目” 图标适配神色模式
-						.replace("FP()","true") # 解除不显示 Sora 限制
+						。replace('fill:"#0D0D0D"','fill:"currentColor"') # “新项目” 图标适配神色模式
+						。replace("FP()","true") # 解除不显示 Sora 限制
 						# .replace("https://chatgpt.com", f"{petrol}://{origin_host}") # 我才是 ChatGPT！
 						# .replace("https", petrol) # 全都给我变协议
 						)
